@@ -36,8 +36,62 @@
 //看门狗监控任务检查间隔 (ms)
 #define IWDG_CHECK_INTERVAL_MS 1000
 
+//IWDG 超时时间 (ms), 标称值，实际受 LSI 频率影响，有 ±30% 偏差
+#define IWDG_TIMEOUT_MS 4000
 
+/*---------------------------------------------------------------------------*
+ *  任务心跳槽位 ID 定义 (每个被监控任务一个 ID)
+ *---------------------------------------------------------------------------*/
+typedef enum {
+    IWDG_TASK_LED_RENDER = 0,  // LED 渲染任务
+    IWDG_TASK_BLE_CMD = 1,         // BLE 命令处理任务
+    IWDG_TASK_LED_EFFECT = 2,       // LED 特效任务
+    IWDG_TASK_HEARTBEAT = 3,              // 心跳任务
+    IWDG_TASK_MONITOR = 4,                // 看门狗监控任务自身
+    IWDG_TASK_COUNT = 5,                // 已注册任务数
+}iwdg_task_id_t;
 
+/*---------------------------------------------------------------------------*
+ *  API 函数
+ *---------------------------------------------------------------------------*/
 
+/* 初始化 IWDG 并启动
+ * - 使能 LSI 时钟
+ * - 配置预分频器 = 256, 重装载值 = 625 → ~4 秒超时
+ * - 写 0xCCCC 启动 IWDG (一旦启动不可停止!)
+ *
+ * 调用时机: main() 中 HAL_Init 之后, 外设初始化之前
+ * 重要: 必须在创建任务之前调用, 否则任务可能在 IWDG 配置期间被调度抢占
+ */
+void iwdg_init(void);
+
+/* 注册一个被监控的任务
+ *
+ * 参数: id   — 任务 ID (来自 iwdg_task_id_t 枚举)
+ *        name — 任务名称 (调试用, 可传 NULL)
+ *
+ * 每个需要在看门狗监控下的任务, 在自身初始化阶段调用此函数。
+ * 未注册的任务不会被看门狗监控。
+ */
+void iwdg_register_task(iwdg_task_id_t id, const char *name);
+
+/* 更新任务心跳 — 每个被监控的任务在主循环中调用
+ *
+ * 参数: id — 任务 ID
+ *
+ * 任务应在每次主循环迭代中调用此函数。
+ * 监控任务定期检查此计数是否递增来判断任务是否存活。
+ */
+void iwdg_task_alive(iwdg_task_id_t id);
+
+/* 看门狗监控任务函数 (由 main.c 通过 xTaskCreate 启动)
+ *
+ * 参数: pvParameters — 未使用 (传 NULL)
+ * 优先级: 2 (仅高于 heartbeat_task)
+ * 栈深度: 128 字 (512 字节)
+ *
+ * 每秒唤醒一次, 检查所有已注册任务的心跳, 全部健康则喂狗。
+ */
+void iwdg_monitor_task(void *pvParameters);
 
 #endif /* IWDG_MONITOR_H */
