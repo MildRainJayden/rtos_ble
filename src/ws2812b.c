@@ -229,35 +229,35 @@ void DMA1_Channel3_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
-    /* 检查并清除传输完成标志 */
+    //检查并清除传输完成标志
     uint32_t tc_flag = __HAL_DMA_GET_TC_FLAG_INDEX(&g_hdma_tim4_ch3);
     if (__HAL_DMA_GET_FLAG(&g_hdma_tim4_ch3, tc_flag) != RESET) {
 
-        /* 清除 DMA 传输完成标志 */
+        //清除 DMA 传输完成标志
         __HAL_DMA_CLEAR_FLAG(&g_hdma_tim4_ch3, tc_flag);
 
-        /* 停止 PWM 输出:
-         * 1. 禁用 TIM4 CH3 PWM 输出 → PB8 回到 GPIO 控制 */
+        //停止 PWM 输出:
+        //禁用 TIM4 CH3 PWM 输出 → PB8 回到 GPIO 控制
         TIM_CCxChannelCmd(WS2812B_TIM, WS2812B_TIM_CHANNEL, TIM_CCx_DISABLE);
 
-        /* 2. 停止 TIM4 DMA 请求 */
+        //停止 TIM4 DMA 请求
         __HAL_TIM_DISABLE_DMA(&g_htim4, TIM_DMA_CC3);
 
-        /* 3. 停止 TIM4 计数器 */
+        //停止 TIM4 计数器
         __HAL_TIM_DISABLE(&g_htim4);
 
-        /* 4. 强制 PB8 低电平 (确保复位信号) */
+        //强制 PB8 低电平 (确保复位信号)
         HAL_GPIO_WritePin(WS2812B_GPIO, WS2812B_PIN, GPIO_PIN_RESET);
 
         g_dma_buffer_active = NULL;
 
-        /* 释放信号量, 通知渲染任务 DMA 已完成 */
+        //释放信号量, 通知渲染任务 DMA 已完成
         if (g_dma_done_sem != NULL) {
             xSemaphoreGiveFromISR(g_dma_done_sem, &xHigherPriorityTaskWoken);
         }
     }
 
-    /* 如有更高优先级任务就绪, 触发上下文切换 */
+    //如有更高优先级任务就绪, 触发上下文切换
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);    
 
 }
