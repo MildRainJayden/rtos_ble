@@ -221,8 +221,7 @@ uint8_t cmd_execute(const parsed_cmd_t *parsed, effect_cmd_t *effect, char *resp
 /*---------------------------------------------------------------------------*
  *  构建 JSON 错误响应
  *---------------------------------------------------------------------------*/
-void cmd_build_error(const char *cmd_name, const char *err_msg,
-                     char *out, uint16_t max_len)
+void cmd_build_error(const char *cmd_name, const char *err_msg, char *out, uint16_t max_len)
 {
     snprintf(out, max_len,
              "{\"cmd\":\"%s\",\"status\":\"error\",\"msg\":\"%s\"}\n",
