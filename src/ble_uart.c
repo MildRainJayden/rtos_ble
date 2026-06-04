@@ -24,7 +24,7 @@
  *  全局变量定义
  *---------------------------------------------------------------------------*/
 UART_HandleTypeDef g_ble_huart; //UART 句柄, 在 ble_uart_init() 中初始化
-QueueHandle_t g_ble_cmd_queue; //命令队列句柄, 由 main.c 创建, ble_uart ISR 写入, ble_cmd_task 读取
+QueueHandle_t g_cmd_queue; //命令队列句柄, 由 main.c 创建, ble_uart ISR 写入, ble_cmd_task 读取
 
 /*---------------------------------------------------------------------------*
  *  静态变量：行缓冲（在ISR中使用, 临界区保护）
@@ -131,7 +131,7 @@ void USART1_IRQHandler(void)
                 g_uart_line_buf[g_uart_line_idx] = '\0';
 
                 //将完整命令行推送到FreeRTOS队列，如果队列已满则丢弃
-                xQueueSendFromISR(g_ble_cmd_queue, g_uart_line_buf, &xHigherPriorityTaskwoken);
+                xQueueSendFromISR(g_cmd_queue, g_uart_line_buf, &xHigherPriorityTaskwoken);
                 //重置行缓冲索引，准备接收下一行
                 g_uart_line_idx = 0;
             }
@@ -152,7 +152,7 @@ void USART1_IRQHandler(void)
         //如果行缓冲中有数据但未收到换行符，视为一行结束，提交到队列
         if (g_uart_line_idx > 0){
             g_uart_line_buf[g_uart_line_idx] = '\0'; //终止字符串
-            xQueueSendFromISR(g_ble_cmd_queue, (const void *)g_uart_line_buf, &xHigherPriorityTaskwoken);
+            xQueueSendFromISR(g_cmd_queue, (const void *)g_uart_line_buf, &xHigherPriorityTaskwoken);
             g_uart_line_idx = 0; //重置行缓冲索引
         }
     }
