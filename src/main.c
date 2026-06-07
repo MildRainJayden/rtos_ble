@@ -202,6 +202,10 @@ static void ble_cmd_task(void *pvParameters)
         /* 等待 UART ISR 推送命令行 (超时 1000ms 防止死等) */
         if (xQueueReceive(g_cmd_queue, raw_line, pdMS_TO_TICKS(1000)) == pdPASS) {
 
+            snprintf(response,sizeof(response),"{\"debug\":\"RAW=%s\"}\n",raw_line);
+
+            ble_uart_send((uint8_t*)response,strlen(response));
+
             /* ---- 第 1 步: 解析命令行 ---- */
             if (cmd_parse(raw_line, &parsed) != 0) {
                 /* 解析失败 (不应该发生, cmd_parse 极宽容) */
@@ -222,10 +226,30 @@ static void ble_cmd_task(void *pvParameters)
             ble_uart_send((uint8_t *)response, (uint16_t)strlen(response));
 
             /* ---- 第 4 步: 如果是 SET 命令, 推送到特效任务 ---- */
+
             if (!parsed.is_get) {
+
+                snprintf(response,sizeof(response),"{\"debug\":\"before queue\"}\n");
+                ble_uart_send((uint8_t*)response,strlen(response));
+
                 /* 将特效命令发送给 led_effect_task (非阻塞, 队列满则丢弃) */
-                xQueueSend(g_effect_queue, &effect, 0);
+                if (xQueueSend(g_effect_queue,&effect,pdMS_TO_TICKS(10)) != pdPASS){
+                    snprintf(response,sizeof(response),"{\"debug\":\"queue full\"}\n");
+
+                    ble_uart_send((uint8_t *)response,strlen(response));
+                }
+                else
+                {
+                    snprintf(response,sizeof(response),"{\"debug\":\"queue ok\"}\n");
+
+                    ble_uart_send((uint8_t *)response,strlen(response));
+                }
+
+                snprintf(response,sizeof(response),"{\"debug\":\"after queue\"}\n");
+                ble_uart_send((uint8_t*)response,strlen(response));
+
             }
+
         }
         /* 超时: 无命令, 继续循环等待 */
     }
@@ -252,6 +276,8 @@ static void ble_cmd_task(void *pvParameters)
  *---------------------------------------------------------------------------*/
 static void led_effect_task(void *pvParameters)
 {
+
+
     effect_cmd_t new_cmd;
     TickType_t   frame_interval = pdMS_TO_TICKS(50);  /* 默认帧间隔 */
     TickType_t   last_wake_time = xTaskGetTickCount();
@@ -267,6 +293,13 @@ static void led_effect_task(void *pvParameters)
 
         /* 等待新特效命令 (非阻塞: 超时后继续当前特效) */
         if (xQueueReceive(g_effect_queue, &new_cmd, pdMS_TO_TICKS(10)) == pdPASS) {
+
+            char dbg[64];
+
+            snprintf(dbg,sizeof(dbg),"{\"debug\":\"recv effect=%d\"}\n",new_cmd.type);
+
+            ble_uart_send((uint8_t*)dbg,strlen(dbg));
+
             /* 收到新命令 → 更新特效状态 */
             led_effect_set_command(&new_cmd);
 

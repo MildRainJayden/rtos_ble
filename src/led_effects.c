@@ -401,6 +401,9 @@ static void effect_gradient(uint8_t *frame, uint16_t led_count)
  *---------------------------------------------------------------------------*/
 static void effect_off(uint8_t *frame, uint16_t led_count)
 {
+
+    printf("OFF FRAME\r\n");
+
     for (uint16_t i = 0; i < led_count; i++) {
         frame_set_led(frame, i, 0, 0, 0);
     }
@@ -464,6 +467,13 @@ void led_effect_step(uint8_t *frame, uint16_t led_count)
  *---------------------------------------------------------------------------*/
 void led_effect_set_command(const effect_cmd_t *cmd)
 {
+
+    char buf[64];
+
+    snprintf(buf,sizeof(buf),"{\"debug\":\"SET CMD %d\"}\n",cmd->type);
+
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
     g_effect_running = 0;  /* 暂停当前特效计算 */
 
     /* 保存新特效参数 */

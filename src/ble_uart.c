@@ -19,13 +19,17 @@
 #include "ble_uart.h"
 #include "stm32f1xx_hal.h"
 #include "task.h"
+#include "semphr.h"
 
 /*---------------------------------------------------------------------------*
  *  全局变量定义
  *---------------------------------------------------------------------------*/
+#define BLE_UART_TX_TIMEOUT_MS 100
 UART_HandleTypeDef g_ble_huart; //UART 句柄, 在 ble_uart_init() 中初始化
 QueueHandle_t g_cmd_queue; //命令队列句柄, 由 main.c 创建, ble_uart ISR 写入, ble_cmd_task 读取
 
+
+SemaphoreHandle_t g_uart_tx_mutex;
 /*---------------------------------------------------------------------------*
  *  静态变量：行缓冲（在ISR中使用, 临界区保护）
  *---------------------------------------------------------------------------*/
@@ -83,7 +87,7 @@ void ble_uart_init(void)
     __HAL_UART_ENABLE_IT(&g_ble_huart, UART_IT_RXNE);
 
     //使能 IDLE 中断，线路空间检测，IDLE 在 RX 线路上检测到一个完整帧的间隔后触发，用于作为备用帧检测机制 (即使没有收到 \n)
-    __HAL_UART_ENABLE_IT(&g_ble_huart, UART_IT_IDLE);
+    // __HAL_UART_ENABLE_IT(&g_ble_huart, UART_IT_IDLE);
 
     //配置 NVIC 优先级 (7, 0)，逻辑优先级 7, 寄存器值: 7 << 4 = 112，该优先级 > configMAX_SYSCALL_INTERRUPT_PRIORITY (5<<4=80)，因此 USART1 ISR 可以安全调用 xQueueSendFromISR
     HAL_NVIC_SetPriority(USART1_IRQn, 7, 0);
@@ -97,9 +101,20 @@ void ble_uart_init(void)
  *  JSON 响应通常 < 200 字节, 115200 波特率下约需 17ms。
  *  对于 LED 控制场景, 这个延迟可以接受。
  *---------------------------------------------------------------------------*/
-void ble_uart_send(const uint8_t *data, uint16_t len)
+// void ble_uart_send(const uint8_t *data, uint16_t len)
+// {
+//     HAL_UART_Transmit(&g_ble_huart, (uint8_t *)data, len, BLE_UART_TX_TIMEOUT_MS);
+// }
+
+void ble_uart_send(const uint8_t *data,uint16_t len)
 {
-    HAL_UART_Transmit(&g_ble_huart, (uint8_t *)data, len, HAL_MAX_DELAY);
+    g_uart_tx_mutex = xSemaphoreCreateMutex();
+    if(xSemaphoreTake(g_uart_tx_mutex,pdMS_TO_TICKS(100)) == pdPASS)
+    {
+        HAL_UART_Transmit(&g_ble_huart,(uint8_t*)data,len,BLE_UART_TX_TIMEOUT_MS);
+
+        xSemaphoreGive(g_uart_tx_mutex);
+    }
 }
 
 /*---------------------------------------------------------------------------*
@@ -120,7 +135,8 @@ void USART1_IRQHandler(void)
     BaseType_t xHigherPriorityTaskwoken = pdFALSE;
 
     //处理 RXNE 中断: 字符接收就绪
-    if(__HAL_UART_GET_FLAG(&g_ble_huart, UART_FLAG_RXNE) != RESET){
+    if((__HAL_UART_GET_FLAG(&g_ble_huart, UART_FLAG_RXNE) != RESET) &&
+    (__HAL_UART_GET_IT_SOURCE(&g_ble_huart, UART_IT_RXNE) != RESET)){
         //读取接收到的字符（读DR寄存器会自动清除 RXNE 标志）
         uint8_t ch = (uint8_t)(g_ble_huart.Instance->DR & 0xFF);
 

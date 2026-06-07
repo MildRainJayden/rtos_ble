@@ -58,39 +58,76 @@ static const cmd_map_t g_cmd_map[] = {
  *---------------------------------------------------------------------------*/
 uint8_t cmd_parse(const char *raw_line, parsed_cmd_t *cmd)
 {
-    uint8_t i = 0, j = 0;
-
-    //初始化输出结构
-    memset(cmd, 0, sizeof(parsed_cmd_t));   
-
-    //提取命令名
-    //扫描到第一个':'或字符串结束
-    while (raw_line[i] != '\0' && raw_line[i] != ':' && j < CMD_NAME_MAX_LEN - 1)
-    {
-        cmd->cmd_name[j++] = raw_line[i++];
+    // 空指针校验
+    if (raw_line == NULL || cmd == NULL) {
+        return 1;
     }
-    cmd->cmd_name[j] = '\0';
 
-    //判断是否为查询命令
-    if (strncmp(cmd->cmd_name, "GET:", 4) == 0) {
+    // 初始化输出结构
+    memset(cmd, 0, sizeof(parsed_cmd_t));
+
+    const char *last_colon = strrchr(raw_line, ':');
+    const char *param_start = NULL;
+
+    // -------------------------- 1. 智能提取命令名 --------------------------
+    if (last_colon != NULL) {
+        char next_char = *(last_colon + 1);
+        // 判断冒号是否为参数分隔符（后面是数字或逗号）
+        if (next_char >= '0' && next_char <= '9' || next_char == ',') {
+            // 有参数：命令名 = 开头到最后一个冒号前
+            size_t cmd_name_len = last_colon - raw_line;
+            if (cmd_name_len > CMD_NAME_MAX_LEN - 1) {
+                cmd_name_len = CMD_NAME_MAX_LEN - 1;
+            }
+            strncpy(cmd->cmd_name, raw_line, cmd_name_len);
+            cmd->cmd_name[cmd_name_len] = '\0';
+            param_start = last_colon + 1;
+        } else {
+            // 无参数：整个字符串都是命令名（冒号是命令名的一部分）
+            strncpy(cmd->cmd_name, raw_line, CMD_NAME_MAX_LEN - 1);
+            cmd->cmd_name[CMD_NAME_MAX_LEN - 1] = '\0';
+            param_start = NULL;
+        }
+    } else {
+        // 没有冒号：整个字符串都是命令名
+        strncpy(cmd->cmd_name, raw_line, CMD_NAME_MAX_LEN - 1);
+        cmd->cmd_name[CMD_NAME_MAX_LEN - 1] = '\0';
+        param_start = NULL;
+    }
+
+    // -------------------------- 2. 处理GET查询命令 --------------------------
+    if (strlen(cmd->cmd_name) >= 4 && strncmp(cmd->cmd_name, "GET:", 4) == 0) {
         cmd->is_get = 1;
-        return 0;  /* GET 命令无参数, 直接结束 */
+        return 0;
     }
     cmd->is_get = 0;
 
-    //如果命令名后没有 ':', 无参数
-    if (raw_line[i] != ':') { cmd->param_count = 0; return 0; }
-    i++; //跳过
-    
-    //解析参数 (逗号分隔的整数)
-    cmd->param_count = 0;
-    while (raw_line[i] != '\0' && cmd->param_count < CMD_PARAM_MAX) {
-        uint16_t val = 0;
-        uint8_t  has_digit = 0;
+    // -------------------------- 3. 解析参数（如果有） --------------------------
+    if (param_start == NULL) {
+        cmd->param_count = 0;
+        return 0;
+    }
 
-        /* 解析一个十进制整数 */
-        while (raw_line[i] >= '0' && raw_line[i] <= '9') {
-            val = val * 10 + (uint16_t)(raw_line[i] - '0');
+    uint8_t i = 0;
+    cmd->param_count = 0;
+    while (param_start[i] != '\0' && cmd->param_count < CMD_PARAM_MAX) {
+        uint16_t val = 0;
+        uint8_t has_digit = 0;
+
+        // 解析十进制整数
+        while (param_start[i] >= '0' && param_start[i] <= '9') {
+
+            uint16_t digit = (uint16_t)(param_start[i] - '0');
+             // 溢出检测：uint16_t最大值是65535
+            if (val > 6553 || (val == 6553 && digit > 5)) {
+                has_digit = 0;
+                // 跳过剩余的数字
+                while (param_start[i] >= '0' && param_start[i] <= '9') {
+                    i++;
+                }
+                break;
+            }
+            val = val * 10 + (uint16_t)(param_start[i] - '0');
             has_digit = 1;
             i++;
         }
@@ -99,9 +136,12 @@ uint8_t cmd_parse(const char *raw_line, parsed_cmd_t *cmd)
             cmd->params[cmd->param_count++] = val;
         }
 
-        /* 跳过逗号或非数字字符 */
-        if (raw_line[i] == ',') i++;
-        else if (raw_line[i] != '\0' && !(raw_line[i] >= '0' && raw_line[i] <= '9')) i++;
+        // 跳过逗号或非数字字符
+        if (param_start[i] == ',') {
+            i++;
+        } else if (param_start[i] != '\0' && !(param_start[i] >= '0' && param_start[i] <= '9')) {
+            i++;
+        }
     }
 
     return 0;

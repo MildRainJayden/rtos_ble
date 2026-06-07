@@ -146,7 +146,7 @@ void iwdg_task_alive(iwdg_task_id_t id)
 void iwdg_monitor_task(void *pvParameters)
 {
     uint8_t all_alive;
-    uint8_t stall_count;//死循环迭代计数，用于软件复位兜底
+    uint8_t stall_count = 0;//死循环迭代计数，用于软件复位兜底
 
     (void)pvParameters; //未使用参数，避免编译警告
     

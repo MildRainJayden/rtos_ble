@@ -12,13 +12,13 @@
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION                     1
 
 //值为 1 时使用 低功耗无滴答模式，值为 0 时则始终保持滴答中断运行
-#define configUSE_TICKLESS_IDLE                                     1
+#define configUSE_TICKLESS_IDLE                                     0
 
 //输入用于驱动生成节拍中断所用外设的内部时钟的执行频率（单位：赫兹）——该时钟通常与驱动内部CPU时钟的时钟相同。为正确配置定时器外设，需要提供此数值
 #define configCPU_CLOCK_HZ                                          (SystemCoreClock)
 
 // SysTick定时器的时钟频率,F103（Cortex‑M3）的 SysTick 默认是 HCLK/8
-#define configSYSTICK_CLOCK_HZ                                      (SystemCoreClock / 8)
+#define configSYSTICK_CLOCK_HZ                                      (SystemCoreClock)
 
 //系统节拍频率
 #define configTICK_RATE_HZ                                          ((TickType_t)1000)
@@ -69,7 +69,7 @@
 #define configUSE_QUEUE_SETS                                        0
 
 //时间片轮转调度,当多个同优先级任务就绪时,是否让它们轮流占用 CPU 时间，关闭以节省上下文切换开销
-#define configUSE_TIME_SLICING                                      0
+#define configUSE_TIME_SLICING                                      1
 
 //newlib 可重入，是否在 STM32 上用 C 标准库（printf、malloc、字符串、时间函数），关闭0以节省内存，仅单任务调用，无需多任务重入保护
 #define configUSE_NEWLIB_REENTRANT                             0
@@ -104,7 +104,7 @@
 #define configSUPPORT_DYNAMIC_ALLOCATION                         1
 
 //动态分配的堆总大小 (字节): 10KB
-#define configTOTAL_HEAP_SIZE                   ((size_t)10240)
+#define configTOTAL_HEAP_SIZE                   ((size_t)(14 * 1024))
 
 //链接器自动分配地址，FreeRTOS 自行在 heap_4.c 中声明 ucHeap[], 无需接管0，默认情况下，FreeRTOS 堆由 FreeRTOS 声明，并由链接器放置在内存中
 #define configAPPLICATION_ALLOCATED_HEAP                            0
@@ -163,7 +163,7 @@
 #define configTIMER_QUEUE_LENGTH                            10
 
 //设置分配给软件定时器服务/守护任务的堆栈深度
-#define configTIMER_TASK_STACK_DEPTH                        configMINIMAL_STACK_SIZE
+#define configTIMER_TASK_STACK_DEPTH                        256
 
 //-------------------------------------------------------------------------------------------------
 /* Interrupt nesting behaviour configuration. */

@@ -198,7 +198,7 @@ void ws2812b_start_dma(const uint16_t *pwm_buff, uint32_t pwm_len)
     __HAL_TIM_SET_COUNTER(&g_htim4, 0);
 
     //启动 TIM4 PWM 输出 (使能 CH3) 定时器未启动前不输出 PWM, 但通道需先使能
-    TIM_CCxChannelCmd(WS2812B_TIM, WS2812B_TIM_CHANNEL, TIM_CCxN_ENABLE);
+    TIM_CCxChannelCmd(WS2812B_TIM, WS2812B_TIM_CHANNEL, TIM_CCx_ENABLE);
 
     //确保PB8处于低电平(初始化状态),以避免DMA开始前出现错误的高电平脉冲
     HAL_GPIO_WritePin(WS2812B_GPIO, WS2812B_PIN, GPIO_PIN_RESET);
