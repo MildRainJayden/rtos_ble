@@ -22,6 +22,8 @@
  #include <stdio.h>
  #include <string.h>
 
+extern uint8_t g_led_brightness;
+
  /*---------------------------------------------------------------------------*
  *  命令名 → 特效类型 映射表
  *---------------------------------------------------------------------------*/
@@ -96,7 +98,7 @@ uint8_t cmd_parse(const char *raw_line, parsed_cmd_t *cmd)
     }
 
     // -------------------------- 2. 处理GET查询命令 --------------------------
-    if (strlen(cmd->cmd_name) >= 4 && strncmp(cmd->cmd_name, "GET:", 4) == 0) {
+    if (strncmp(cmd->cmd_name, "GET", 3) == 0) {
         cmd->is_get = 1;
         return 0;
     }
@@ -213,10 +215,19 @@ uint8_t cmd_execute(const parsed_cmd_t *parsed, effect_cmd_t *effect, char *resp
         }
         /* 将 0-100 映射到 0-255 */
         g_led_brightness = (uint8_t)((level * 255) / 100);
+      
+        snprintf(response, resp_max_len,"{\"cmd\":\"SET:brightness\",\"status\":\"ok\",""\"data\":{\"level\":%d}}\n", level);
+        
+        return 0;
+    }
 
-        snprintf(response, resp_max_len,
-                 "{\"cmd\":\"SET:brightness\",\"status\":\"ok\","
-                 "\"data\":{\"level\":%d}}\n", level);
+    // ===================== 【修改4】添加 SET:off 关灯命令 =====================
+    if (strcmp(parsed->cmd_name, "SET:off") == 0) {
+        effect->type = EFFECT_OFF;
+        effect->param_count = 0;
+
+
+        snprintf(response, resp_max_len, "{\"cmd\":\"SET:off\",\"status\":\"ok\"}\n");
         return 0;
     }
 
@@ -225,6 +236,7 @@ uint8_t cmd_execute(const parsed_cmd_t *parsed, effect_cmd_t *effect, char *resp
         effect->type        = EFFECT_STATIC;
         effect->param_count = 5;  /* start, end, R, G, B */
         memcpy(effect->params, parsed->params, 5 * sizeof(uint16_t));
+
 
         snprintf(response, resp_max_len,
                  "{\"cmd\":\"SET:segment\",\"status\":\"ok\","
@@ -240,6 +252,9 @@ uint8_t cmd_execute(const parsed_cmd_t *parsed, effect_cmd_t *effect, char *resp
     effect->type = map->type;
     effect->param_count = parsed->param_count;
     memcpy(effect->params, parsed->params, parsed->param_count * sizeof(uint16_t));
+
+
+
 
     //构建成功响应
     char data_str[128] = {0};

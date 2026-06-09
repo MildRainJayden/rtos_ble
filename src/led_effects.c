@@ -19,6 +19,7 @@
  #include "led_effects.h"
  #include "ws2812b.h"
  #include <string.h>
+ #include <stdio.h>
 
  /*---------------------------------------------------------------------------*
  *  全局特效状态变量定义
@@ -26,6 +27,7 @@
 
  //当前激活特效类型，默认全关闭
 effect_type_t g_current_effect = EFFECT_OFF;
+
 
 //当前特效参数 (含义因特效类型而异, 见 led_effect_step 中各特效的具体说明)
 uint16_t g_effect_params[CMD_PARAM_MAX] = {0};
@@ -509,6 +511,15 @@ void led_effect_init(void)
 
     /* 帧缓冲清零 */
     memset(g_led_frame, 0, sizeof(g_led_frame));
+
+    //debug
+    char buf[64];
+    static uint32_t cnt = 0;
+
+    snprintf(buf,sizeof(buf),"{\"debug\":\"led_effect_init run:%lu_times\"}\n",++cnt);
+
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
 }
 
 /*---------------------------------------------------------------------------*

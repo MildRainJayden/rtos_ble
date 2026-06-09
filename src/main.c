@@ -437,10 +437,22 @@ void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
     ( void ) pcTaskName;
     ( void ) xTask;
 
+    char buf[128];
+
     // 打印错误信息
-    printf("!!! FreeRTOS 任务栈溢出 !!!\r\n");
-    printf("溢出任务: %s\r\n", pcTaskName);
-    printf("检查：任务栈大小 / 任务递归调用\r\n");
+    // printf("!!! FreeRTOS 任务栈溢出 !!!\r\n");
+    // printf("溢出任务: %s\r\n", pcTaskName);
+    // printf("检查：任务栈大小 / 任务递归调用\r\n");
+
+    snprintf(buf,sizeof(buf),"{\"debug\":\"!!! FreeRTOS 任务栈溢出 !!!\"}\n");
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
+    snprintf(buf,sizeof(buf),"{\"debug\":\"溢出任务:%s\"}\n",pcTaskName);
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
+    snprintf(buf,sizeof(buf),"{\"debug\":\"检查：任务栈大小 / 任务递归调用\"}\n");
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
 
     /* 死循环: 方便调试器抓取栈溢出现场
      * 查看 xTask 句柄和 pcTaskName 名称确定哪个任务栈不够 */
@@ -465,6 +477,11 @@ void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
  *---------------------------------------------------------------------------*/
 int main(void)
 {
+
+    char buf[128];
+    snprintf(buf,sizeof(buf),"{\"debug\":\"BOOT!MCU发生HardFault然后重启!\"}\n");
+    ble_uart_send((uint8_t*)buf,strlen(buf));
+
     /* ---- 第 1 步: HAL 初始化 ---- */
     HAL_Init();
 

@@ -18,7 +18,7 @@
 #define configCPU_CLOCK_HZ                                          (SystemCoreClock)
 
 // SysTick定时器的时钟频率,F103（Cortex‑M3）的 SysTick 默认是 HCLK/8
-#define configSYSTICK_CLOCK_HZ                                      (SystemCoreClock)
+#define configSYSTICK_CLOCK_HZ                                      (SystemCoreClock/8)
 
 //系统节拍频率
 #define configTICK_RATE_HZ                                          ((TickType_t)1000)
