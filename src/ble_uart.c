@@ -92,6 +92,9 @@ void ble_uart_init(void)
     //配置 NVIC 优先级 (7, 0)，逻辑优先级 7, 寄存器值: 7 << 4 = 112，该优先级 > configMAX_SYSCALL_INTERRUPT_PRIORITY (5<<4=80)，因此 USART1 ISR 可以安全调用 xQueueSendFromISR
     HAL_NVIC_SetPriority(USART1_IRQn, 7, 0);
     HAL_NVIC_EnableIRQ(USART1_IRQn);
+
+    /* 创建 UART TX 互斥量（只创建一次，防止多任务并发发送导致数据错乱） */
+    g_uart_tx_mutex = xSemaphoreCreateMutex();
 }
 
 /*---------------------------------------------------------------------------*
@@ -108,11 +111,13 @@ void ble_uart_init(void)
 
 void ble_uart_send(const uint8_t *data,uint16_t len)
 {
-    g_uart_tx_mutex = xSemaphoreCreateMutex();
-    if(xSemaphoreTake(g_uart_tx_mutex,pdMS_TO_TICKS(100)) == pdPASS)
+    if (g_uart_tx_mutex == NULL) {
+        HAL_UART_Transmit(&g_ble_huart, (uint8_t*)data, len, BLE_UART_TX_TIMEOUT_MS);
+        return;
+    }
+    if (xSemaphoreTake(g_uart_tx_mutex, pdMS_TO_TICKS(100)) == pdPASS)
     {
-        HAL_UART_Transmit(&g_ble_huart,(uint8_t*)data,len,BLE_UART_TX_TIMEOUT_MS);
-
+        HAL_UART_Transmit(&g_ble_huart, (uint8_t*)data, len, BLE_UART_TX_TIMEOUT_MS);
         xSemaphoreGive(g_uart_tx_mutex);
     }
 }

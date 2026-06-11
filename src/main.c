@@ -186,7 +186,9 @@ void SysTick_Handler(void)
 static void ble_cmd_task(void *pvParameters)
 {
     char    raw_line[BLE_CMD_QUEUE_ITEM_SIZE];
-    char    response[CMD_RESPONSE_MAX_LEN];
+    /* 静态分配: response 256 字节放在 .bss 段而非任务栈上,
+     * 节省 256 字节栈空间, 避免命令处理期间栈溢出导致 HardFault */
+    static char response[CMD_RESPONSE_MAX_LEN];
     parsed_cmd_t parsed;
     effect_cmd_t effect;
 
@@ -225,9 +227,9 @@ static void ble_cmd_task(void *pvParameters)
             /* ---- 第 3 步: 发送 JSON 响应 ---- */
             ble_uart_send((uint8_t *)response, (uint16_t)strlen(response));
 
-            /* ---- 第 4 步: 如果是 SET 命令, 推送到特效任务 ---- */
-
-            if (!parsed.is_get) {
+            /* ---- 第 4 步: 如果是非亮度调整的 SET 命令, 推送到特效任务 ---- */
+            /* SET:brightness 仅更新全局变量 g_led_brightness, 无需推送到特效队列 */
+            if (!parsed.is_get && strcmp(parsed.cmd_name, "SET:brightness") != 0) {
 
                 snprintf(response,sizeof(response),"{\"debug\":\"before queue\"}\n");
                 ble_uart_send((uint8_t*)response,strlen(response));
@@ -477,11 +479,6 @@ void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
  *---------------------------------------------------------------------------*/
 int main(void)
 {
-
-    char buf[128];
-    snprintf(buf,sizeof(buf),"{\"debug\":\"BOOT!MCU发生HardFault然后重启!\"}\n");
-    ble_uart_send((uint8_t*)buf,strlen(buf));
-
     /* ---- 第 1 步: HAL 初始化 ---- */
     HAL_Init();
 
@@ -494,6 +491,14 @@ int main(void)
     /* ---- 第 4 步: 外设初始化 ---- */
     ws2812b_init();   /* TIM4 CH3 PB8 PWM+DMA (WS2812B 驱动) */
     ble_uart_init();  /* USART1 115200 中断接收 (JDY BLE 模块) */
+
+    /* BOOT 消息: 必须在 ble_uart_init() 之后发送 */
+    {
+        char buf[128];
+        snprintf(buf, sizeof(buf),
+                 "{\"debug\":\"BOOT!MCU发生HardFault然后重启!\"}\n");
+        ble_uart_send((uint8_t*)buf, strlen(buf));
+    }
 
     /* ---- 第 5 步: IWDG 看门狗初始化 (必须在创建任务前启动) ---- */
     iwdg_init();       /* LSI ~40kHz, 4s 超时, 调试 halted 时暂停 */

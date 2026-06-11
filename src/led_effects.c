@@ -403,9 +403,6 @@ static void effect_gradient(uint8_t *frame, uint16_t led_count)
  *---------------------------------------------------------------------------*/
 static void effect_off(uint8_t *frame, uint16_t led_count)
 {
-
-    printf("OFF FRAME\r\n");
-
     for (uint16_t i = 0; i < led_count; i++) {
         frame_set_led(frame, i, 0, 0, 0);
     }
